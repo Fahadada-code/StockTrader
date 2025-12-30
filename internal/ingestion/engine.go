@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/Fahadada-code/StockTrader/internal/alphavantage"
+	"github.com/Fahadada-code/StockTrader/internal/resilience"
 )
 
 type Engine struct {
@@ -14,14 +15,16 @@ type Engine struct {
 	symbols    map[string]time.Time // Last polled time
 	interval   time.Duration
 	activeSubs func() []string // Callback to get active symbols from Manager/Cache
+	cb         *resilience.CircuitBreaker
 }
 
-func NewEngine(client *alphavantage.Client, interval time.Duration, activeSubs func() []string) *Engine {
+func NewEngine(client *alphavantage.Client, interval time.Duration, activeSubs func() []string, cb *resilience.CircuitBreaker) *Engine {
 	return &Engine{
 		client:     client,
 		symbols:    make(map[string]time.Time),
 		interval:   interval,
 		activeSubs: activeSubs,
+		cb:         cb,
 	}
 }
 
@@ -57,7 +60,17 @@ func (e *Engine) Run(ctx context.Context, onUpdate func(*alphavantage.QuoteData)
 				}
 
 				log.Printf("[Ingestion] Polling %s...", symbol)
-				quote, err := e.client.GetQuote(symbol)
+
+				err := e.cb.Execute(func() error {
+					quote, err := e.client.GetQuote(symbol)
+					if err != nil {
+						return err
+					}
+					e.symbols[symbol] = time.Now()
+					onUpdate(quote)
+					return nil
+				})
+
 				if err != nil {
 					log.Printf("[Ingestion] Error polling %s: %v", symbol, err)
 					if err.Error() == "rate limit reached or symbol not found" {
@@ -65,9 +78,6 @@ func (e *Engine) Run(ctx context.Context, onUpdate func(*alphavantage.QuoteData)
 					}
 					continue
 				}
-
-				e.symbols[symbol] = time.Now()
-				onUpdate(quote)
 
 				// Stagger requests to avoid bursting
 				time.Sleep(2 * time.Second)

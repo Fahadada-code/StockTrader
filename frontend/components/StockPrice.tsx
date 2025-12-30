@@ -1,13 +1,14 @@
 "use client";
 
-import { QuoteData } from '../lib/api';
-import { TrendingUp, TrendingDown, Activity, BarChart3 } from 'lucide-react';
+import { EnhancedQuote } from '../lib/api';
+import { TrendingUp, TrendingDown, Activity, BarChart3, Zap, ShieldAlert } from 'lucide-react';
 
 interface StockPriceProps {
-    quote: QuoteData;
+    data: EnhancedQuote;
 }
 
-export default function StockPrice({ quote }: StockPriceProps) {
+export default function StockPrice({ data }: StockPriceProps) {
+    const { quote, metrics } = data;
     const change = parseFloat(quote.Change);
     const isPositive = change >= 0;
 
@@ -52,11 +53,30 @@ export default function StockPrice({ quote }: StockPriceProps) {
                         </div>
                     </div>
                     <div className="space-y-1 text-right">
+                        <span className="text-muted-foreground text-[10px] font-bold uppercase tracking-widest flex items-center gap-1 justify-end">
+                            <Zap className="w-3 h-3" /> VWAP
+                        </span>
+                        <div className="text-lg font-bold text-primary">
+                            ${metrics.VWAP.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </div>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 pt-4">
+                    <div className="space-y-1">
                         <span className="text-muted-foreground text-[10px] font-bold uppercase tracking-widest">
-                            Previous Close
+                            Volatility
                         </span>
                         <div className="text-lg font-bold text-foreground">
-                            ${parseFloat(quote.PreviousClose).toFixed(2)}
+                            {metrics.Volatility.toFixed(4)}
+                        </div>
+                    </div>
+                    <div className="space-y-1 text-right">
+                        <span className="text-muted-foreground text-[10px] font-bold uppercase tracking-widest">
+                            Rolling Chg
+                        </span>
+                        <div className={`text-lg font-bold ${metrics.PriceChange >= 0 ? 'text-success' : 'text-destructive'}`}>
+                            {metrics.PriceChange.toFixed(2)}%
                         </div>
                     </div>
                 </div>

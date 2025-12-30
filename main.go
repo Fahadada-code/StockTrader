@@ -15,6 +15,7 @@ import (
 	"github.com/Fahadada-code/StockTrader/internal/db"
 	"github.com/Fahadada-code/StockTrader/internal/ingestion"
 	"github.com/Fahadada-code/StockTrader/internal/metrics"
+	"github.com/Fahadada-code/StockTrader/internal/resilience"
 	"github.com/Fahadada-code/StockTrader/internal/websocket"
 
 	"github.com/joho/godotenv"
@@ -32,7 +33,7 @@ func main() {
 	// 1. Initialize DB & Cache
 	pgURL := os.Getenv("DB_URL")
 	if pgURL == "" {
-		pgURL = "postgres://postgres:postgres@127.0.0.1:5433/stocktrader?sslmode=disable"
+		pgURL = "postgres://postgres:postgres@127.0.0.1:5432/stocktrader?sslmode=disable"
 	}
 	pg, err := db.NewPostgresDB(pgURL)
 	if err != nil {
@@ -60,8 +61,15 @@ func main() {
 	avClient := alphavantage.NewClient(apiKey)
 	wsManager := websocket.NewManager()
 	analyticsEngine := analytics.NewEngine(50) // 50-point rolling window
+	cb := resilience.NewCircuitBreaker(3, 30*time.Second)
+	replayEngine := ingestion.NewReplayEngine(pg)
 
 	activeSymbolsFunc := func() []string {
+		subs := wsManager.GetSubscribedSymbols()
+		if len(subs) > 0 {
+			return subs
+		}
+
 		if !redisAvailable {
 			return []string{"AAPL", "TSLA", "MSFT"} // default set
 		}
@@ -85,7 +93,7 @@ func main() {
 		return symbols
 	}
 
-	ingestionEngine := ingestion.NewEngine(avClient, 30*time.Second, activeSymbolsFunc)
+	ingestionEngine := ingestion.NewEngine(avClient, 30*time.Second, activeSymbolsFunc, cb)
 
 	// 3. Start Background Routines
 	go wsManager.Run()
@@ -112,17 +120,23 @@ func main() {
 		}
 
 		// C. Snapshot Persistence
-		if pg != nil {
+		if pg != nil && pg.Conn != nil {
 			start := time.Now()
 			pg.SaveQuote(quote.Symbol, price, volume)
 			metrics.DatabaseLatency.Observe(time.Since(start).Seconds())
 		}
 
-		// D. Real-Time Distribution
+		// D. Real-Time Distribution (including analytics metrics)
 		wsManager.Broadcast(websocket.Message{
 			Symbol: quote.Symbol,
 			Type:   "price",
-			Data:   quote,
+			Data: struct {
+				Quote   *alphavantage.QuoteData  `json:"quote"`
+				Metrics analytics.RollingMetrics `json:"metrics"`
+			}{
+				Quote:   quote,
+				Metrics: m,
+			},
 		})
 	})
 
@@ -159,8 +173,19 @@ func main() {
 			}
 			return
 		}
+
+		price, _ := strconv.ParseFloat(quote.Price, 64)
+		volume, _ := strconv.ParseInt(quote.Volume, 10, 64)
+		m := analyticsEngine.Process(quote.Symbol, price, float64(volume))
+
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(quote)
+		json.NewEncoder(w).Encode(struct {
+			Quote   *alphavantage.QuoteData  `json:"quote"`
+			Metrics analytics.RollingMetrics `json:"metrics"`
+		}{
+			Quote:   quote,
+			Metrics: m,
+		})
 	}))
 
 	http.HandleFunc("/api/history", enableCORS(func(w http.ResponseWriter, r *http.Request) {
@@ -180,6 +205,32 @@ func main() {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(history)
+	}))
+
+	http.HandleFunc("/api/replay", enableCORS(func(w http.ResponseWriter, r *http.Request) {
+		symbol := r.URL.Query().Get("symbol")
+		speedStr := r.URL.Query().Get("speed")
+		if symbol == "" {
+			http.Error(w, "symbol is required", http.StatusBadRequest)
+			return
+		}
+		speed := 1.0
+		if speedStr != "" {
+			if s, err := strconv.ParseFloat(speedStr, 64); err == nil {
+				speed = s
+			}
+		}
+
+		go replayEngine.Replay(context.Background(), symbol, speed, func(quote *alphavantage.QuoteData) {
+			wsManager.Broadcast(websocket.Message{
+				Symbol: quote.Symbol,
+				Type:   "price",
+				Data:   quote,
+			})
+		})
+
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"status":"replay started"}`))
 	}))
 
 	http.Handle("/metrics", promhttp.Handler())

@@ -2,6 +2,7 @@ package ingestion
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"time"
 
@@ -34,10 +35,10 @@ func (r *ReplayEngine) Replay(ctx context.Context, symbol string, speed float64,
 		if err := rows.Scan(&price, &volume, &ts); err != nil {
 			continue
 		}
-		// Convert back to string for the existing QuoteData structure (for simplicity)
 		q.Symbol = symbol
-		q.Price = time.Now().Format("2006-01-02 15:04:05") // Dummy TS or price formatting
-		// ... realistically we'd use a more generic data structure
+		q.Price = fmt.Sprintf("%.2f", price)
+		q.Volume = fmt.Sprintf("%d", volume)
+		q.LatestTradingDay = ts.Format("2006-01-02")
 		data = append(data, q)
 	}
 

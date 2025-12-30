@@ -94,3 +94,13 @@ func (m *Manager) Unsubscribe(client *Client, symbol string) {
 func (m *Manager) Broadcast(msg Message) {
 	m.broadcast <- msg
 }
+
+func (m *Manager) GetSubscribedSymbols() []string {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	symbols := make([]string, 0, len(m.symbols))
+	for s := range m.symbols {
+		symbols = append(symbols, s)
+	}
+	return symbols
+}
