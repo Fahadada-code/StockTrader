@@ -1,0 +1,89 @@
+@import "tailwindcss";
+
+@theme {
+    --color-background: oklch(0.1 0.02 240);
+    --color-foreground: oklch(0.98 0.01 240);
+
+    --color-card: oklch(0.14 0.03 240);
+    --color-card-foreground: oklch(0.98 0.01 240);
+
+    --color-primary: oklch(0.6 0.25 250);
+    --color-primary-foreground: oklch(0.98 0.01 240);
+
+    --color-secondary: oklch(0.2 0.03 240);
+    --color-secondary-foreground: oklch(0.98 0.01 240);
+
+    --color-muted: oklch(0.2 0.03 240);
+    --color-muted-foreground: oklch(0.6 0.02 240);
+
+    --color-accent: oklch(0.2 0.03 240);
+    --color-accent-foreground: oklch(0.98 0.01 240);
+
+    --color-success: oklch(0.7 0.2 150);
+    --color-destructive: oklch(0.6 0.2 20);
+
+    --color-border: oklch(0.2 0.03 240);
+    --color-input: oklch(0.2 0.03 240);
+    --color-ring: oklch(0.6 0.25 250);
+}
+
+:root {
+    --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+    --font-heading: 'Outfit', var(--font-sans);
+}
+
+body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    font-family: var(--font-heading);
+}
+
+.glass {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-dark {
+    background: rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.text-gradient {
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+    background-image: linear-gradient(to right, oklch(0.8 0.15 200), oklch(0.8 0.15 150));
+}
+
+@keyframes float {
+    0% {
+        transform: translateY(0px);
+    }
+
+    50% {
+        transform: translateY(-10px);
+    }
+
+    100% {
+        transform: translateY(0px);
+    }
+}
+
+.animate-float {
+    animation: float 6s ease-in-out infinite;
+}
