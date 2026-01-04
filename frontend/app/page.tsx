@@ -110,7 +110,7 @@ export default function Home() {
             {anomalies.length > 0 && (
                 <div className="w-full max-w-xl space-y-2 mb-8 animate-in slide-in-from-top-4">
                     {anomalies.map((a, i) => (
-                        <div key={i} className="p-3 glass-dark border-primary/30 text-primary rounded-xl flex items-center justify-between gap-3 text-xs">
+                        <div key={i} className="p-3 glass-dark text-primary rounded-xl flex items-center justify-between gap-3 text-xs">
                             <div className="flex items-center gap-2">
                                 <Activity className="w-4 h-4" />
                                 <span className="font-bold uppercase">{a.type}</span>

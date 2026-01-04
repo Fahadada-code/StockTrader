@@ -19,7 +19,7 @@ func DetectAnomaly(symbol string, price, volume float64, metrics RollingMetrics)
 			Symbol:     symbol,
 			Type:       "price_jump",
 			Confidence: math.Min(0.95, 0.5+math.Abs(metrics.PriceChange)/10.0),
-			Details:    fmt.Sprintf("Significant price move of %.2f%% detected.", metrics.PriceChange),
+			Details:    fmt.Sprintf("Sudden momentum shift: %.2f%% price move detected.", metrics.PriceChange),
 		}
 	}
 
@@ -29,7 +29,7 @@ func DetectAnomaly(symbol string, price, volume float64, metrics RollingMetrics)
 			Symbol:     symbol,
 			Type:       "high_volatility_spike",
 			Confidence: 0.8,
-			Details:    fmt.Sprintf("Unusual volatility (%.2f) detected relative to VWAP (%.2f).", metrics.Volatility, metrics.VWAP),
+			Details:    "Aggressive trading activity detected with elevated volatility.",
 		}
 	}
 
